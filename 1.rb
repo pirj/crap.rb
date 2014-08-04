@@ -1,3 +1,5 @@
+require 'set'
+
 # # Module.constants
 # #   .map { |constant_name| Module.const_get constant_name }
 # #   .select { |constant| constant.is_a? Class }
@@ -14,7 +16,20 @@
 
 # p 1.2+3
 
-UNSAFE = [:method_missing, :const_get, :class, :object_id, :send, :__send__, :__id__, :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :public_instance_method, :public_instance_methods, :nil?]
+UNSAFE = [:const_get, :class, :object_id, :send, :__send__, :__id__, :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :public_instance_method, :public_instance_methods, :nil?]
+
+class Crap
+  @@calls = {}
+
+  def self.register clazz, method
+    clazz_calls = @@calls[clazz] ||= Set.new
+    clazz_calls << method
+  end
+
+  def self.all
+    @@calls
+  end
+end
 
 [Numeric, Integer, Fixnum, Float, Bignum].each do |constant|
   constant.public_instance_methods.each do |method|
@@ -24,7 +39,7 @@ UNSAFE = [:method_missing, :const_get, :class, :object_id, :send, :__send__, :__
     constant.class_eval do
       alias_method old_method, method
       define_method(method) do |*args|
-        p "#{self} #{self.class} called #{constant}##{method}"
+        Crap.register self.class, method
         self.send old_method, *args
       end
     end
@@ -32,3 +47,10 @@ UNSAFE = [:method_missing, :const_get, :class, :object_id, :send, :__send__, :__
 end
 
 p 1.2+3
+
+def fib x; return 1 if x < 2; fib(x-1) + fib(x-2); end
+
+p fib(5)
+
+
+puts Crap.all
