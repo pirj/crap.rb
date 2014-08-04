@@ -16,9 +16,9 @@ require 'set'
 
 # p 1.2+3
 
-UNSAFE = [:const_get, :class, :object_id, :send, :__send__, :__id__, :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :public_instance_method, :public_instance_methods, :nil?]
-
 class Crap
+  UNSAFE = [:const_get, :class, :object_id, :send, :__send__, :__id__, :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :public_instance_method, :public_instance_methods, :nil?]
+
   @@calls = {}
 
   def self.register clazz, method
@@ -34,22 +34,26 @@ class Crap
   def self.unused
     @@calls
   end
-end
 
-[Numeric, Integer, Fixnum, Float, Bignum].each do |constant|
-  constant.public_instance_methods.each do |method|
-    next if UNSAFE.include?(method)
-    next if method =~ /^_/
-    old_method = :"_#{method}"
-    Crap.register constant, method
-    constant.class_eval do
-      alias_method old_method, method
-      define_method(method) do |*args|
-        Crap.used self.class, method
-        self.send old_method, *args
+  def cut constant
+    constant.public_instance_methods.each do |method|
+      next if UNSAFE.include?(method)
+      next if method =~ /^_/
+      old_method = :"_#{method}"
+      Crap.register constant, method
+      constant.class_eval do
+        alias_method old_method, method
+        define_method(method) do |*args|
+          Crap.used self.class, method
+          self.send old_method, *args
+        end
       end
     end
   end
+end
+
+[Numeric, Integer, Fixnum, Float, Bignum].each do |constant|
+  Crap.cut constant
 end
 
 p 1.2+3
@@ -57,6 +61,5 @@ p 1.2+3
 def fib x; return 1 if x < 2; fib(x-1) + fib(x-2); end
 
 p fib(5)
-
 
 puts Crap.unused
