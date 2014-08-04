@@ -26,7 +26,12 @@ class Crap
     clazz_calls << method
   end
 
-  def self.all
+  def self.used clazz, method
+    clazz_calls = @@calls[clazz] ||= Set.new
+    clazz_calls.delete method
+  end
+
+  def self.unused
     @@calls
   end
 end
@@ -36,10 +41,11 @@ end
     next if UNSAFE.include?(method)
     next if method =~ /^_/
     old_method = :"_#{method}"
+    Crap.register constant, method
     constant.class_eval do
       alias_method old_method, method
       define_method(method) do |*args|
-        Crap.register self.class, method
+        Crap.used self.class, method
         self.send old_method, *args
       end
     end
@@ -53,4 +59,4 @@ def fib x; return 1 if x < 2; fib(x-1) + fib(x-2); end
 p fib(5)
 
 
-puts Crap.all
+puts Crap.unused
