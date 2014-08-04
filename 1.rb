@@ -35,7 +35,7 @@ class Crap
     @@calls
   end
 
-  def cut constant
+  def self.cut constant
     constant.public_instance_methods.each do |method|
       next if UNSAFE.include?(method)
       next if method =~ /^_/
