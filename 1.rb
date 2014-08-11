@@ -75,7 +75,7 @@ p 1.2+3
 
 def fib x; return 1 if x < 2; fib(x-1) + fib(x-2); end
 
-p fib(9)
+p fib(5)
 
 File.open('unused.yml', 'w') do |file|
   Crap.unused.each do |clazz, methods|
