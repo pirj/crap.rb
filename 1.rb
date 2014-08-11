@@ -5,7 +5,10 @@ class Crap
             :public_instance_method, :public_instance_methods, :instance_methods, :method,
             :nil?, :nonzero?, :===, :constants, :==, :=~, :'||=', :intern, :new, :[], :inspect,
             :backtrace, :message, :exception, :set_backtrace, # Exceptions specific
-    :delete, # Array specific
+            :delete, # Array specific
+            :include?, # Array specific
+            :p, # Kernel specific
+            :round, # Fixnum specific
   ]
 
   @@wrapped = {}
@@ -16,7 +19,7 @@ class Crap
   end
 
   def self.used clazz, method
-    # p ['used', clazz, method]
+    p ['used', clazz, method]
     clazz_wrapped = @@wrapped[clazz]
     clazz_wrapped.delete method
     unwrap_method clazz, method
@@ -66,8 +69,17 @@ end
 #   .map { |constant_name| Module.const_get constant_name }
 #   .select { |constant| constant.is_a? Class }
 
- # [Object, Module, Class, BasicObject, NilClass, Data, TrueClass, FalseClass, Encoding, String, Symbol, Exception, SystemExit, SignalException, Interrupt, StandardError, TypeError, ArgumentError, IndexError, KeyError, RangeError, ScriptError, SyntaxError, LoadError, NotImplementedError, NameError, NoMethodError, RuntimeError, SecurityError, NoMemoryError, EncodingError, SystemCallError, ZeroDivisionError, FloatDomainError, Numeric, Integer, Fixnum, Float, Bignum, Array, Hash, Struct, RegexpError, Regexp, MatchData, Range, IOError, EOFError, IO, File, Dir, Time, Random, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding, Enumerator, StopIteration, RubyVM, Thread, ThreadGroup, Mutex, ThreadError, Fiber, FiberError, Rational, Complex, TracePoint, Date, Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue, Monitor, Set, SortedSet].each do |constant|
- [Object, Module, Class, BasicObject, NilClass, Data, TrueClass, FalseClass, Encoding, String, Symbol, Exception, SystemExit, SignalException, Interrupt, StandardError, TypeError, ArgumentError, IndexError, KeyError, RangeError, ScriptError, SyntaxError, LoadError, NotImplementedError, NameError, NoMethodError, RuntimeError, SecurityError, NoMemoryError, EncodingError, SystemCallError, ZeroDivisionError, FloatDomainError, Numeric, Integer, Fixnum, Float, Bignum, MatchData, Range, IOError, EOFError].each do |constant|
+# [Object, Module, Class, BasicObject, NilClass, Data, TrueClass, FalseClass, Encoding, String, Symbol, Exception, SystemExit, SignalException, Interrupt, StandardError, TypeError, ArgumentError, IndexError, KeyError, RangeError, ScriptError, SyntaxError, LoadError, NotImplementedError, NameError, NoMethodError, RuntimeError, SecurityError, NoMemoryError, EncodingError, SystemCallError, ZeroDivisionError, FloatDomainError, Numeric, Integer, Fixnum, Float, Bignum, Array, Hash, Struct, RegexpError, Regexp, MatchData, Range, IOError, EOFError, Enumerator, Rational, Complex, Date, Set, SortedSet, Time, Random, 
+#! IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding,
+#! StopIteration, RubyVM, Thread, ThreadGroup, Mutex, Monitor,
+#! ThreadError, Fiber, FiberError,
+#! TracePoint,
+#! Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue,
+# ]
+
+ 
+[Object, Module, Class, BasicObject, NilClass, Data, TrueClass, FalseClass, Encoding, String, Symbol, Exception, SystemExit, SignalException, Interrupt, StandardError, TypeError, ArgumentError, IndexError, KeyError, RangeError, ScriptError, SyntaxError, LoadError, NotImplementedError, NameError, NoMethodError, RuntimeError, SecurityError, NoMemoryError, EncodingError, SystemCallError, ZeroDivisionError, FloatDomainError, Numeric, Integer, Fixnum, Float, Bignum, RegexpError, Regexp, MatchData, Range, IOError, EOFError, Enumerator, Rational, Complex, Date, Set, SortedSet, Time, Random, Struct, Hash, Array
+].each do |constant|
     Crap.wrap constant
   end
 
@@ -76,6 +88,8 @@ p 1.2+3
 def fib x; return 1 if x < 2; fib(x-1) + fib(x-2); end
 
 p fib(5)
+
+p Time.now
 
 File.open('unused.yml', 'w') do |file|
   Crap.unused.each do |clazz, methods|
