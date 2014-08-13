@@ -1,13 +1,14 @@
 require File.join Dir.pwd, 'crap'
 
-Crap.load 'unused.yml'
-Crap.cut
+Crap::Cleaner.load 'unused.yml'
+Crap::Cleaner.clean_all
+Crap::Cleaner.clean_dog
 
-require 'mspec/commands/mspec'
-script = MSpecMain.new
-script.load_default
-# script.load '~/.mspecrc'
-script.options
-script.signals
-script.register
-script.run
+# Load your app
+
+def f x
+  return 1 if x < 2
+  f(x-1) + f(x-2)
+end
+
+p f 9

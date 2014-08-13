@@ -1,15 +1,15 @@
 require File.join Dir.pwd, 'crap'
 
-Crap.wrap_all
-Crap.wrap_dog
+Crap::Analyzer.wrap_all
+Crap::Analyzer.wrap_dog
 
-require 'mspec/commands/mspec'
-script = MSpecMain.new
-script.load_default
-# script.load '~/.mspecrc'
-script.options
-script.signals
-script.register
-script.run
+# Do something, e.g. run specs
 
-Crap.save 'unused.yml'
+# def f x
+#   return 1 if x < 2
+#   f(x-1) + f(x-2)
+# end
+
+# p f 9
+
+Crap::Analyzer.save 'unused.yml'
