@@ -6,6 +6,18 @@ module Crap
             :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect,
             :public_instance_method, :public_instance_methods, :instance_methods, :method,
             :nil?, :nonzero?, :===, :constants, :==, :=~, :'||=', :intern, :new, :[], :inspect,
+            :initialize,
+            :!=, :kind_of?, :!, # Object
+            # :!=, :kind_of?, :is_a?, :!, :untaint, :dup, :clone, :instance_eval, :freeze, :tap, :!~, :public_send, :instance_of?, # Object during pry
+            # :method_defined?, :define_singleton_method, :equal?, :class_variable_set, :const_set, :>, :instance_method, # Module (Pry?)
+            :replace, # String
+            :autoload, # Module
+            :singleton_class?, # Module
+            :protected_instance_methods, # Module
+            :taint, # Object
+            :instance_exec, # Object
+            :each_slice, # Array
+            :has_key?, # Hash
             :[]=, # Hash specific
             :<<, # Set specific
             :backtrace, :message, :exception, :set_backtrace, # Exceptions specific
@@ -15,16 +27,22 @@ module Crap
             :extend, :singleton_methods, # Object specific
             :method_added, # Class specific
             :to_i, # Integer specific
-            :round, :<, :-, :+ # Fixnum specific
+            :round, :<, :-, :+, # Fixnum specific
+            :times # Due to undef behavior: undef removes if from all inherited classes too
   ]
 
-  UNSAFE_CONSTANTS = [ IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding, StopIteration, RubyVM, Thread, ThreadGroup, Mutex, Monitor, ThreadError, Fiber, FiberError, TracePoint, Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue]
+  UNSAFE_CONSTANTS = [ IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding, StopIteration, RubyVM, Thread, ThreadGroup, Mutex, Monitor, ThreadError, Fiber, FiberError, TracePoint, Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue ]
 
   class Analyzer
     @@wrapped = {}
     @@used = {}
+    @@ignore = Set.new
 
     class << self
+      def ignore clazz
+        @@ignore << clazz
+      end
+
       def wrap_all
         Module.constants
           .map { |constant_name| Module.const_get constant_name rescue nil } # wtf why crap.rb:45:in `const_get': uninitialized constant Module::UNSAFE
@@ -65,15 +83,18 @@ module Crap
     # protected # Why doesn't defining a method in class_eval count as local lexical scope? Hmmm
 
       def wrap clazz
-        clazz.public_instance_methods.each do |method|
+        clazz.instance_methods(false).each do |method|
           wrap_method clazz, method
         end
       end
 
       def wrap_method clazz, method
-        return if UNSAFE_CONSTANTS.include? clazz
-        return if UNSAFE.include? method
         return if method =~ /^_/
+        return if UNSAFE_CONSTANTS.include? clazz
+        return if clazz.name.nil? # Singleton class?
+        return if @@ignore.include? clazz.name.to_sym
+        return if UNSAFE.include? method
+        return if method =~ /[-\+\^<>%@\*~\/]/
         return if used? clazz, method
         return if wrapped? clazz, method
 
@@ -85,8 +106,8 @@ module Crap
           alias_method old_method, method
           define_method(method) do |*args, &block|
             # p ['called', clazz, method]
-            Crap::Analyzer.called self.class, method
-            self.send old_method, *args, &block
+            Crap::Analyzer.called clazz, method
+            self.send method, *args, &block
           end
         end
       end
@@ -117,16 +138,13 @@ module Crap
 
       def unwrap_method clazz, method
         used(clazz) << method
-        unless clazz.instance_methods.include? method
-          # p ['wtf', clazz, method]
-          return
-        end
         # p ['unwrap', clazz, method]
-        clazz.class_eval <<-EVAL
-          undef #{method}
-          old_method = :"_#{method}"
+        old_method = "_#{method}"
+        clazz.class_eval do
+          remove_method method
           alias_method method, old_method
-        EVAL
+          undef_method old_method
+        end
       end
     end
   end
@@ -176,22 +194,26 @@ module Crap
     # protected
 
       def clean clazz
-        clazz.public_instance_methods.each do |method|
+        clazz.instance_methods(false).each do |method|
           clean_method clazz, method
         end
       end
 
       def clean_method clazz, method
-        return if UNSAFE_CONSTANTS.include? clazz
-        return if UNSAFE.include? method
         return if method =~ /^_/
+        return if UNSAFE_CONSTANTS.include? clazz
+        return if clazz.name.nil? # Singleton class?
+        return if UNSAFE.include? method
+        return if method =~ /[-\+\^<>%@\*~\/]/
         return unless unused(clazz).include? method
-        return unless clazz.public_instance_methods.include? method
+        # TODO: method_defined?
+        return unless clazz.instance_methods(false).include? method
 
         # p ['clean', clazz, method]
-        clazz.class_eval <<-EVAL
-          undef #{method}
-        EVAL
+        # TODO!!! Only remove if defined here, not by parent only. check A#methods: from pry
+        clazz.class_eval do
+          remove_method method
+        end
       end
 
     private
