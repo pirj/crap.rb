@@ -1,39 +1,48 @@
 require 'set'
 
 module Crap
-  # TODO: separate this to clean up even more crap
-  UNSAFE = [:const_get, :const_missing, :name, :class, :object_id, :send, :__send__, :__id__,
-            :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect,
-            :public_instance_method, :public_instance_methods, :instance_methods, :method,
-            :nil?, :nonzero?, :===, :constants, :==, :=~, :'||=', :intern, :new, :[], :inspect,
-            :initialize,
-            :!=, :kind_of?, :!, # Object
-            # :!=, :kind_of?, :is_a?, :!, :untaint, :dup, :clone, :instance_eval, :freeze, :tap, :!~, :public_send, :instance_of?, # Object during pry
-            # :method_defined?, :define_singleton_method, :equal?, :class_variable_set, :const_set, :>, :instance_method, # Module (Pry?)
-            :replace, # String
-            :autoload, # Module
-            :singleton_class?, # Module
-            :protected_instance_methods, # Module
-            :taint, # Object
-            :instance_exec, # Object
-            :each_slice, # Array
-            :has_key?, # Hash
-            :[]=, # Hash specific
-            :<<, # Set specific
-            :backtrace, :message, :exception, :set_backtrace, # Exceptions specific
-            :delete, :include?, # Array specific
-            :p, :load, :require, # Kernel specific
-            :include, :const_defined?, # Module specific
-            :extend, :singleton_methods, # Object specific
-            :method_added, # Class specific
-            :to_i, # Integer specific
-            :round, :<, :-, :+, # Fixnum specific
-            :times # Due to undef behavior: undef removes if from all inherited classes too
-  ]
+  module Unsafe
+    def safe? clazz, method
+      return false if method =~ /^_/
+      return false if UNSAFE_CONSTANTS.include? clazz
+      return false if clazz.name.nil? # Singleton class?
+      return false if UNSAFE[clazz] && UNSAFE[clazz].include?(method)
+      return false if UNSAFE_ALL.include? method
+      return false if method =~ /[-\+\^<>%@\*~\/]/
+      # p ['safe to', clazz, method]
+      true
+    end
 
-  UNSAFE_CONSTANTS = [ IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding, StopIteration, RubyVM, Thread, ThreadGroup, Mutex, Monitor, ThreadError, Fiber, FiberError, TracePoint, Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue ]
+    UNSAFE_ALL = [:const_get, :const_missing, :name, :class, :object_id, :send, :__send__, :__id__,
+                  :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :initialize,
+                  :public_instance_method, :public_instance_methods, :instance_methods, :method,
+                  :nil?, :nonzero?, :===, :constants, :==, :=~, :'||=', :intern, :new, :[], :inspect ]
+
+    UNSAFE = {
+      Module =>    [ :autoload, :singleton_class?, :protected_instance_methods, :include, :const_defined? ],
+      Object =>    [ :!=, :kind_of?, :!, :taint, :instance_exec, :extend, :singleton_methods ],
+      Class =>     [ :method_added ],
+
+      String =>    [ :replace ],
+      Array =>     [ :each_slice, :delete, :include? ],
+      Hash =>      [ :has_key?, :[]=, :delete ],
+      Set =>       [ :<<, :delete ],
+
+      Exception => [ :backtrace, :message, :exception, :set_backtrace ],
+      Kernel =>    [ :p, :load, :require ],
+
+      Integer =>   [ :to_i ],
+      Fixnum =>    [ :round, :<, :-, :+] #, :times # Due to undef behavior: undef removes if from all inherited classes too
+    }
+
+    UNSAFE_CONSTANTS = [ IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding,
+                         StopIteration, RubyVM, Thread, ThreadGroup, Mutex, Monitor, ThreadError, Fiber,
+                         FiberError, TracePoint, Thread::ConditionVariable, Thread::Queue, Thread::SizedQueue ]
+  end
 
   class Analyzer
+    extend Unsafe
+
     @@wrapped = {}
     @@used = {}
     @@ignore = Set.new
@@ -89,12 +98,8 @@ module Crap
       end
 
       def wrap_method clazz, method
-        return if method =~ /^_/
-        return if UNSAFE_CONSTANTS.include? clazz
-        return if clazz.name.nil? # Singleton class?
+        return unless safe? clazz, method
         return if @@ignore.include? clazz.name.to_sym
-        return if UNSAFE.include? method
-        return if method =~ /[-\+\^<>%@\*~\/]/
         return if used? clazz, method
         return if wrapped? clazz, method
 
@@ -150,6 +155,8 @@ module Crap
   end
 
   class Cleaner
+    extend Unsafe
+
     class << self
       def clean_dog
         Class.class_eval do
@@ -200,11 +207,8 @@ module Crap
       end
 
       def clean_method clazz, method
-        return if method =~ /^_/
-        return if UNSAFE_CONSTANTS.include? clazz
-        return if clazz.name.nil? # Singleton class?
-        return if UNSAFE.include? method
-        return if method =~ /[-\+\^<>%@\*~\/]/
+        return unless safe? clazz, method
+
         return unless unused(clazz).include? method
         # TODO: method_defined?
         return unless clazz.instance_methods(false).include? method
