@@ -15,7 +15,11 @@ p res
 
 Crap::Cleaner.load 'unused.yml'
 Crap::Cleaner.clean_all
-Crap::Cleaner.clean_dog
+# Crap::Cleaner.clean_dog
+
+res = Benchmark.measure do
+  10.times { f(20) }
+end
 
 res = Benchmark.measure do
   n.times { f(20) }

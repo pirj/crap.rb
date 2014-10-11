@@ -7,32 +7,70 @@ module Crap
       return false if UNSAFE_CONSTANTS.include? clazz
       return false if clazz.name.nil? # Singleton class?
       return false if UNSAFE[clazz] && UNSAFE[clazz].include?(method)
-      return false if UNSAFE_ALL.include? method
+      return false if UNSAFE_NONDEFAULT[clazz.name.to_sym] && UNSAFE[clazz.name.to_sym].include?(method)
+      # return false if UNSAFE_ALL.include? method
       return false if method =~ /[-\+\^<>%@\*~\/]/
       # p ['safe to', clazz, method]
       true
     end
 
-    UNSAFE_ALL = [:const_get, :const_missing, :name, :class, :object_id, :send, :__send__, :__id__,
-                  :hash, :respond_to?, :module_eval, :class_eval, :to_s, :inspect, :initialize,
-                  :public_instance_method, :public_instance_methods, :instance_methods, :method,
-                  :nil?, :nonzero?, :===, :constants, :==, :=~, :'||=', :intern, :new, :[], :inspect ]
-
     UNSAFE = {
-      Module =>    [ :autoload, :singleton_class?, :protected_instance_methods, :include, :const_defined? ],
-      Object =>    [ :!=, :kind_of?, :!, :taint, :instance_exec, :extend, :singleton_methods ],
-      Class =>     [ :method_added ],
+      Module =>      [ :autoload, :singleton_class?, :protected_instance_methods, :include, :const_defined?,
+                       :const_get, :const_missing, :name, :module_eval, :class_eval, :to_s, :inspect,
+                       :public_instance_method, :public_instance_methods, :instance_methods, :===, :constants,
+                       :== ],
+      Kernel =>      [ :p, :load, :require ],
+      BasicObject => [ :__send__, :__id__, :==],
+      NilClass =>    [ :to_s, :inspect, :nil?],
+      TrueClass =>   [ :to_s, :inspect],
+      FalseClass =>  [ :to_s, :inspect],
+      Object =>      [ :!=, :kind_of?, :!, :taint, :instance_exec, :extend, :singleton_methods ],
+      Class =>       [ :method_added, :public_instance_methods, :instance_methods, :new],
+      String =>      [ :replace , :hash, :to_s, :===, :==, :=~, :intern, :[], :inspect],
+      Symbol =>      [ :to_s, :===, :==, :=~, :intern, :[], :inspect],
+      Encoding =>    [ :name, :to_s, :inspect ],
+      Array =>       [ :each_slice, :delete, :include? , :hash, :to_s, :==, :[], :inspect],
+      Hash =>        [ :has_key?, :[]=, :delete , :hash, :to_s, :==, :[], :inspect],
+      Set =>         [ :<<, :delete, :hash, :==, :inspect],
+      Exception =>   [ :backtrace, :message, :exception, :set_backtrace , :respond_to?, :to_s, :respond_to?, :to_s, :==, :inspect],
+      NameError =>   [ :name],
+      Integer =>     [ :to_i ],
+      Numeric =>     [ :nonzero?],
+      Fixnum =>      [ :round, :<, :-, :+, :to_s, :===, :==, :[], :inspect],
+      Float =>       [ :hash, :to_s, :===, :==, :inspect],
+      Bignum =>      [ :hash, :to_s, :===, :==, :[], :inspect],
+      Struct =>      [ :hash, :to_s, :==, :[], :inspect],
+      Regexp =>      [ :hash, :to_s, :===, :==, :=~, :inspect],
+      MatchData =>   [ :hash, :to_s, :==, :[], :inspect],
+      Range =>       [ :hash, :to_s, :===, :==, :inspect],
+      IO =>          [ :inspect],
+      Dir =>         [ :inspect],
+      Date =>        [ :hash, :to_s, :===, :inspect],
+      Time =>        [ :hash, :to_s, :inspect],
+      Random =>      [ :==],
+      Proc =>        [ :hash, :to_s, :===, :[], :inspect],
+      Method =>      [ :name, :hash, :to_s, :==, :[], :inspect],
+      UnboundMethod => [ :name, :hash, :to_s, :==, :inspect],
+      Enumerator =>  [ :inspect],
+      Thread =>      [ :inspect, :[]],
+      Rational =>    [ :hash, :to_s, :==, :inspect],
+      Complex =>     [ :hash, :to_s, :==, :inspect],
+      TracePoint =>  [ :inspect],
+    }
 
-      String =>    [ :replace ],
-      Array =>     [ :each_slice, :delete, :include? ],
-      Hash =>      [ :has_key?, :[]=, :delete ],
-      Set =>       [ :<<, :delete ],
-
-      Exception => [ :backtrace, :message, :exception, :set_backtrace ],
-      Kernel =>    [ :p, :load, :require ],
-
-      Integer =>   [ :to_i ],
-      Fixnum =>    [ :round, :<, :-, :+] #, :times # Due to undef behavior: undef removes if from all inherited classes too
+    UNSAFE_NONDEFAULT = {
+      :StringScanner => [ :[], :inspect],
+      :DateTime =>    [ :to_s],
+      :Slop =>        [ :to_s, :[]],
+      :Delegator =>   [ :==],
+      :Tempfile =>    [ :inspect],
+      :Pathname =>    [ :hash, :to_s, :===, :==, :inspect],
+      :BasicSocket => [ :send],
+      :UDPSocket =>   [ :send],
+      :Addrinfo =>    [ :to_s, :inspect],
+      :SymbolHash =>  [ :[]],
+      :OpenStruct =>  [ :hash, :to_s, :==, :[], :inspect],
+      :OptionParser => [ :to_s, :new]
     }
 
     UNSAFE_CONSTANTS = [ IO, File, Dir, Proc, LocalJumpError, SystemStackError, Method, UnboundMethod, Binding,
